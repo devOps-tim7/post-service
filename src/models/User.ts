@@ -11,6 +11,9 @@ export default class User extends BaseEntity {
   @Column()
   gender: Gender;
 
+  @Column()
+  username: string;
+
   @Column({ type: 'timestamptz' })
   birthDate: Date;
 
@@ -23,9 +26,16 @@ export default class User extends BaseEntity {
   @OneToMany(() => Comment, (comment) => comment.user, { cascade: true })
   comments: Comment[];
 
-  constructor(user?: { id: string; gender: Gender; birthDate: Date; banned: boolean }) {
+  constructor(user?: {
+    id: string;
+    username: string;
+    gender: Gender;
+    birthDate: Date;
+    banned: boolean;
+  }) {
     super();
     this.id = user?.id;
+    this.username = user?.username;
     this.gender = user?.gender;
     this.birthDate = user?.birthDate;
     this.banned = user?.banned;

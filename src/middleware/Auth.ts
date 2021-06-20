@@ -5,6 +5,9 @@ import User from '../models/User';
 
 export interface CustomRequest extends Request {
   user: User;
+  file: {
+    filename: string;
+  };
 }
 
 const loggedIn = (req: CustomRequest, _res: Response, next: NextFunction) => {

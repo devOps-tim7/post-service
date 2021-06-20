@@ -9,10 +9,20 @@ import Post from '../models/Post';
 import PostRelation from '../models/PostRelation';
 import User from '../models/User';
 import AdminService from '../services/AdminService';
+import UploadService from '../services/UploadService';
 
 const get = async (req: CustomRequest, res: Response) => {
-  const post = await Post.findOne(req.params.id, { relations: ['comments', 'relations'] });
-  post.comments.sort((a, b) => b.creationDate.getTime() - a.creationDate.getTime());
+  const post = await Post.findOne(req.params.id, {
+    relations: ['comments', 'relations', 'comments.user', 'user'],
+  });
+
+  if (!post) {
+    throw new HttpException(404, [new PropertyError('base', 'Post not found!')]);
+  }
+
+  post.comments
+    .sort((a, b) => b.creationDate.getTime() - a.creationDate.getTime())
+    .filter((post) => !post.user.banned);
   res.send(post);
 };
 
@@ -45,6 +55,21 @@ const getFeed = async (req: CustomRequest, res: Response) => {
   res.send(posts);
 };
 
+const getForUser = async (req: CustomRequest, res: Response) => {
+  const user: User = await User.findOne(req.params.id);
+  const posts = await Post.find({
+    where: { user },
+    relations: ['comments', 'relations', 'user'],
+    order: { creationDate: 'DESC' },
+  });
+  posts.map((post: Post) => {
+    post.comments.sort((a, b) => b.creationDate.getTime() - a.creationDate.getTime());
+    return post;
+  });
+
+  res.send(posts);
+};
+
 const createPost = async (req: CustomRequest, res: Response) => {
   const user = await User.findOne(req.user.id);
 
@@ -52,12 +77,16 @@ const createPost = async (req: CustomRequest, res: Response) => {
     throw new HttpException(404, [new PropertyError('base', 'User not found!')]);
   }
 
+  console.log(req.body);
+
   const description = req.body.description;
-  const image = ''; //TODO: upload
+  const image = req.file.filename;
   const hidden = !!req.body.hidden;
   const exposureDate = req.body.exposureDate;
 
-  const post = new Post({ user, description, image, hidden, exposureDate });
+  const url: string = await UploadService.uploadToCloudinary(`${process.env.IMAGE_DIR}/${image}`);
+
+  const post = new Post({ user, description, image: url, hidden, exposureDate });
   const savedPost = await post.save();
 
   await AdminService.createPost(savedPost);
@@ -71,6 +100,7 @@ const createUser = async ({ body }, res: Response) => {
     gender: body.gender,
     birthDate: body.birthDate,
     banned: body.banned,
+    username: body.username,
   });
 
   const savedUser = await toCreate.save();
@@ -87,6 +117,7 @@ const updateUser = async ({ body }, res: Response) => {
   user.gender = body.gender;
   user.birthDate = body.birthDate;
   user.banned = body.banned;
+  user.username = body.username;
 
   const savedUser = await user.save();
   res.status(204).send(savedUser);
@@ -158,6 +189,7 @@ export default {
   ping,
   get,
   getFeed,
+  getForUser,
   createPost,
   createUser,
   updateUser,
