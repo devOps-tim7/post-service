@@ -1,0 +1,65 @@
+name: Test and analyze
+
+on:
+  pull_request:
+    branches: [development]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container: node:15-alpine
+
+    # Service containers to run with `runner-job`
+    services:
+      # Label used to access the service container
+      postgres:
+        # Docker Hub image
+        image: postgres
+        # Provide the password for postgres
+        env:
+          POSTGRES_PASSWORD: root
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Use Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '15'
+
+      - name: Install dependencies
+        working-directory: .
+        run: npm ci
+
+      - name: Run tests
+        working-directory: .
+        run: npm test
+        env:
+          DATABASE_TYPE: postgres
+          DATABASE_USERNAME: postgres
+          DATABASE_PASSWORD: root
+          DATABASE_HOST: postgres
+          DATABASE_PORT: 5432
+          DATABASE: postgres
+          IMAGE_DIR: /var/tmp
+          TOKEN_SECRET: '1234567890'
+
+  sonarcloud:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          # Disabling shallow clone is recommended for improving relevancy of reporting
+          fetch-depth: 0
+      - name: SonarCloud Scan
+        uses: sonarsource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
