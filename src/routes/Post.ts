@@ -5,20 +5,23 @@ import { upload } from '../middleware/FileUpload';
 
 const router = express.Router();
 
-router.get('/', loggedIn, PostController.getFeed);
-router.get('/forUser/:id', loggedIn, PostController.getForUser);
+router.get('/', loggedIn(false), PostController.getFeed);
+router.get('/forUser/:id', PostController.getForUser);
+router.get('/tagged', loggedIn(true), PostController.getByTag);
 router.get('/:id', PostController.get);
-router.post('/', loggedIn, upload.single('image'), PostController.createPost);
-router.post('/comment/:id', loggedIn, PostController.addComment);
+router.post('/', loggedIn(false), upload.single('image'), PostController.createPost);
+router.post('/comment/:id', loggedIn(false), PostController.addComment);
 router.post('/remove/:id', PostController.remove);
 
-router.post('/like/:id', loggedIn, PostController.like);
-router.post('/dislike/:id', loggedIn, PostController.dislike);
-router.post('/save/:id', loggedIn, PostController.save);
+router.post('/like/:id', loggedIn(false), PostController.like);
+router.post('/dislike/:id', loggedIn(false), PostController.dislike);
+router.post('/save/:id', loggedIn(false), PostController.save);
 
-router.post('/like/:id/delete', loggedIn, PostController.deleteLike);
-router.post('/dislike/:id/delete', loggedIn, PostController.deleteDislike);
-router.post('/save/:id/delete', loggedIn, PostController.deleteSave);
+router.post('/like/:id/delete', loggedIn(false), PostController.deleteLike);
+router.post('/dislike/:id/delete', loggedIn(false), PostController.deleteDislike);
+router.post('/save/:id/delete', loggedIn(false), PostController.deleteSave);
+
+router.get('/byPostRelation/:type', loggedIn(false), PostController.getByRelation);
 
 router.get('/ping', PostController.ping);
 

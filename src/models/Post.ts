@@ -22,6 +22,9 @@ export default class Post extends BaseEntity {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
+  @OneToMany(() => User, (user) => user.taggedPosts)
+  tags: User[];
+
   @Column({ type: 'timestamptz' })
   creationDate: Date;
 
@@ -41,7 +44,7 @@ export default class Post extends BaseEntity {
   removed: boolean;
 
   // we need these for camapigns
-  @Column({ type: 'timestamptz', default: new Date() })
+  @Column({ type: 'timestamptz' })
   exposureDate: Date;
 
   @Column({ nullable: true })
@@ -62,13 +65,17 @@ export default class Post extends BaseEntity {
     image: string;
     hidden: boolean;
     exposureDate: Date;
+    ageFilterLow: number;
+    ageFilterHigh: number;
+    tags: User[];
   }) {
     super();
     this.user = post?.user;
     this.description = post?.description;
     this.creationDate = new Date();
-    this.exposureDate = post?.exposureDate;
+    this.exposureDate = post?.exposureDate || this.creationDate;
     this.image = post?.image;
     this.hidden = post?.hidden;
+    this.tags = post?.tags;
   }
 }

@@ -12,7 +12,6 @@ register.registerMetric(counter);
 
 const MetricsMiddleware = (req: Request, res: Response, next: NextFunction) => {
   res.on('finish', () => {
-    console.log(req.headers);
     counter.labels(req.method, req.originalUrl, `${res.statusCode}`).inc();
   });
   next();
