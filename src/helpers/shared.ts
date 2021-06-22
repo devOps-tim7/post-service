@@ -5,6 +5,7 @@ export enum RelationType {
 }
 
 export enum Gender {
+  Everyone = 0,
   Male = 1,
   Female = 2,
   Other = 3,
@@ -14,4 +15,9 @@ export enum PostRelationType {
   Like = 1,
   Dislike = 2,
   Save = 3,
+}
+
+export interface PostPromotion {
+  post_id: string;
+  date: Date;
 }

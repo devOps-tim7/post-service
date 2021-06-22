@@ -1,4 +1,4 @@
-import { BaseEntity, Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { BaseEntity, Column, Entity, ManyToMany, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Gender } from '../helpers/shared';
 import Comment from './Comment';
 import Post from './Post';
@@ -30,9 +30,7 @@ export default class User extends BaseEntity {
   @OneToMany(() => Comment, (comment) => comment.user, { cascade: true })
   comments: Comment[];
 
-  @ManyToOne(() => Post, (post) => post.tags, {
-    onDelete: 'CASCADE',
-  })
+  @ManyToMany(() => Post, (post) => post.tags)
   taggedPosts: Post;
 
   constructor(user?: {
