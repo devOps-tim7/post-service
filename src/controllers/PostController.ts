@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 import moment from 'moment';
-import { getManager, In } from 'typeorm';
+import { getManager, In, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import HttpException from '../exceptions/HttpException';
 import PropertyError from '../exceptions/PropertyError';
-import { PostRelationType, RelationType } from '../helpers/shared';
+import { Gender, PostPromotion, PostRelationType, RelationType } from '../helpers/shared';
 import { CustomRequest } from '../middleware/Auth';
 import Comment from '../models/Comment';
 import Post from '../models/Post';
@@ -11,12 +11,18 @@ import PostRelation from '../models/PostRelation';
 import Relation from '../models/Relation';
 import User from '../models/User';
 import AdminService from '../services/AdminService';
+import AgentService from '../services/AgentService';
 import UploadService from '../services/UploadService';
 
 const get = async (req: CustomRequest, res: Response) => {
-  const post = await Post.findOne(req.params.id, {
+  const post = await Post.findOne({
+    where: { id: req.params.id, removed: false },
     relations: ['comments', 'relations', 'comments.user', 'user', 'tags'],
   });
+
+  if (post.hidden && req.user?.id !== post.user.id) {
+    throw new HttpException(404, [new PropertyError('base', 'Post is hidden!')]);
+  }
 
   if (!post) {
     throw new HttpException(404, [new PropertyError('base', 'Post not found!')]);
@@ -29,19 +35,10 @@ const get = async (req: CustomRequest, res: Response) => {
 };
 
 const getFeed = async (req: CustomRequest, res: Response) => {
-  // THE HOME FEED:
-  // posts from users that I FOLLOW
-  // posts from users that I DID NOT MUTE
-  // posts from users that I DID NOT BLOCK
-  // posts from users that ARE NOT BANNED
-  // posts from campaigns that MATCH MY AGE AND GENDER (todo)
-  // SORTED BY EXPOSURE DATE DESCENDING
-
   const userId = req.user.id;
 
   const user = await User.findOne({ id: userId });
   const userAge = moment().diff(user.birthDate, 'years');
-  console.log('AGE: ', userAge);
 
   const posts = await getManager().query(
     `
@@ -50,6 +47,7 @@ const getFeed = async (req: CustomRequest, res: Response) => {
     join relation on relation.object_id = u.id
     where relation.subject_id = $1
     and post.removed = false
+    and post.hidden = false
     and u.id not in 
       (select nistagram_user.id from relation
       join nistagram_user on nistagram_user.id = relation.object_id
@@ -59,22 +57,53 @@ const getFeed = async (req: CustomRequest, res: Response) => {
 `,
     [userId]
   );
-  const transformed = posts
-    .map((post) => {
+
+  const normalPostIds = posts.map((post) => post.id);
+
+  const campaignPosts = (
+    await Post.find({
+      where: [
+        {
+          genderFilter: Gender.Everyone,
+          removed: false,
+          ageFilterLow: LessThanOrEqual(userAge),
+          ageFilterHigh: MoreThanOrEqual(userAge),
+          campaign: true,
+        },
+        {
+          genderFilter: user.gender,
+          removed: false,
+          ageFilterLow: LessThanOrEqual(userAge),
+          ageFilterHigh: MoreThanOrEqual(userAge),
+          campaign: true,
+        },
+      ],
+      relations: ['user'],
+    })
+  ).filter((post) => !post.user.banned && !normalPostIds.includes(post.id));
+
+  const sorted = [
+    ...posts.map((post) => {
       post.user = {
         username: post.username,
       };
       delete post.username;
       return post;
-    })
-    .sort((a, b) => b.exposureDate.getTime() - a.exposureDate.getTime());
-  res.send(transformed);
+    }),
+    ...campaignPosts,
+  ].sort((a, b) => b.exposureDate.getTime() - a.exposureDate.getTime());
+
+  res.send(sorted);
 };
 
 const getForUser = async (req: CustomRequest, res: Response) => {
   const user: User = await User.findOne(req.params.id);
+  let whereArgs = { user, removed: false, hidden: false };
+  if (user.id === req.user.id) {
+    delete whereArgs.hidden;
+  }
   const posts = await Post.find({
-    where: { user },
+    where: whereArgs,
     relations: ['comments', 'relations', 'user', 'tags'],
     order: { creationDate: 'DESC' },
   });
@@ -110,8 +139,10 @@ const getByRelation = async (req: CustomRequest, res: Response) => {
     relations: ['post', 'user', 'post.user'],
   });
 
+
   const filtered = relations.filter(
-    (rel) => ![...blockedByUserIds, ...hasBlockedUserIds].includes(rel.post.user.id)
+    (rel) =>
+      ![...blockedByUserIds, ...hasBlockedUserIds].includes(rel.post.user.id) && !rel.post.removed
   );
 
   res.send(filtered);
@@ -145,12 +176,18 @@ const getByTag = async (req: CustomRequest, res: Response) => {
     ).map((relation) => relation.subject_id);
   }
 
-  const posts = await Post.find({ relations: ['tags', 'user'] });
+  const posts = await Post.find({ where: { removed: false }, relations: ['tags', 'user'] });
   const filtered = posts.filter((post) => {
+    if(post.user.banned){
+      return false;
+    }
     if (!post.tags.find((tag) => tag.username.includes(username))) {
       return false;
     }
     const user = post.user;
+    if (user.id === req?.user.id) {
+      return true;
+    }
     if ([...blockedByUserIds, ...hasBlockedUserIds].includes(user.id)) {
       return false;
     }
@@ -180,6 +217,7 @@ const createPost = async (req: CustomRequest, res: Response) => {
   const exposureDate = req.body.exposureDate;
   const ageFilterLow = isNaN(+req.body.ageFilterLow) ? 0 : +req.body.ageFilterLow;
   const ageFilterHigh = isNaN(+req.body.ageFilterLow) ? 150 : +req.body.ageFilterHigh;
+  const genderFilter = isNaN(+req.body.genderFilter) ? Gender.Everyone : +req.body.genderFilter;
 
   const tagsIds = JSON.parse(req.body.tags);
   const tags = await User.find({ where: { id: In(tagsIds) } });
@@ -195,9 +233,16 @@ const createPost = async (req: CustomRequest, res: Response) => {
     ageFilterLow,
     ageFilterHigh,
     tags,
+    genderFilter,
   });
   const savedPost = await post.save();
 
+  const promotions: PostPromotion[] = JSON.parse(req.body.campaignDates).map((date) => ({
+    post_id: savedPost.id,
+    date: date,
+  }));
+
+  await AgentService.createPostPromotions(promotions);
   await AdminService.createPost(savedPost);
 
   res.status(201).send(savedPost);
@@ -291,8 +336,26 @@ const remove = async (req: Request, res: Response) => {
   res.status(204).end();
 };
 
-const ping = async (req: CustomRequest, res: Response) => {
-  console.log(req.header('User-Agent'));
+const promote = async (req: Request, res: Response) => {
+  const promotions: PostPromotion[] = req.body.promotions;
+
+  const posts: Post[] = [];
+
+  for (let i = 0; i < promotions.length; i++) {
+    const promotion = promotions[i];
+    const post = await Post.findOne({ id: promotion.post_id });
+    post.exposureDate = new Date();
+    post.hidden = false;
+    post.campaign = true;
+    posts.push(post);
+  }
+
+  await Post.save(posts);
+
+  res.status(204).end();
+};
+
+const ping = async (_req: CustomRequest, res: Response) => {
   res.status(200).send('pong');
 };
 
@@ -314,6 +377,7 @@ export default {
   deleteSave,
   addComment,
   remove,
+  promote,
 };
 
 const createPostRelation = async (id: string, postId: string, type: PostRelationType) => {

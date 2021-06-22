@@ -7,7 +7,6 @@ function errorMiddleware(
   response: Response,
   _next: NextFunction
 ) {
-  console.log(ex);
   const status = ex.status || 500;
   const errors = ex.errors?.length
     ? ex.errors.map((error) => ({ [error.property]: error.value }))

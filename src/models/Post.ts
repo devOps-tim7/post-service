@@ -3,6 +3,8 @@ import {
   Column,
   Entity,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -12,7 +14,6 @@ import Comment from './Comment';
 import PostRelation from './PostRelation';
 import User from './User';
 
-// TODO: tags
 @Entity()
 export default class Post extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
@@ -22,7 +23,8 @@ export default class Post extends BaseEntity {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @OneToMany(() => User, (user) => user.taggedPosts)
+  @ManyToMany(() => User, (user) => user.taggedPosts)
+  @JoinTable()
   tags: User[];
 
   @Column({ type: 'timestamptz' })
@@ -47,7 +49,7 @@ export default class Post extends BaseEntity {
   @Column({ type: 'timestamptz' })
   exposureDate: Date;
 
-  @Column({ nullable: true })
+  @Column({ default: Gender.Everyone })
   genderFilter: Gender;
 
   @Column({ default: 0 })
@@ -59,6 +61,9 @@ export default class Post extends BaseEntity {
   @Column({ default: false })
   hidden: boolean;
 
+  @Column({ default: false })
+  campaign: boolean;
+
   constructor(post?: {
     user: User;
     description: string;
@@ -68,6 +73,7 @@ export default class Post extends BaseEntity {
     ageFilterLow: number;
     ageFilterHigh: number;
     tags: User[];
+    genderFilter: Gender;
   }) {
     super();
     this.user = post?.user;
@@ -77,5 +83,6 @@ export default class Post extends BaseEntity {
     this.image = post?.image;
     this.hidden = post?.hidden;
     this.tags = post?.tags;
+    this.genderFilter = post?.genderFilter;
   }
 }
