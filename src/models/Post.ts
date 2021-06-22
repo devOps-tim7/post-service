@@ -23,7 +23,7 @@ export default class Post extends BaseEntity {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @ManyToMany(() => User, (user) => user.taggedPosts)
+  @ManyToMany(() => User, (user) => user.taggedPosts, { onDelete: 'CASCADE' })
   @JoinTable()
   tags: User[];
 

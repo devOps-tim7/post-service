@@ -99,7 +99,7 @@ const getFeed = async (req: CustomRequest, res: Response) => {
 const getForUser = async (req: CustomRequest, res: Response) => {
   const user: User = await User.findOne(req.params.id);
   let whereArgs = { user, removed: false, hidden: false };
-  if (user.id === req.user.id) {
+  if (user.id === req.user?.id) {
     delete whereArgs.hidden;
   }
   const posts = await Post.find({
@@ -139,7 +139,6 @@ const getByRelation = async (req: CustomRequest, res: Response) => {
     relations: ['post', 'user', 'post.user'],
   });
 
-
   const filtered = relations.filter(
     (rel) =>
       ![...blockedByUserIds, ...hasBlockedUserIds].includes(rel.post.user.id) && !rel.post.removed
@@ -178,14 +177,14 @@ const getByTag = async (req: CustomRequest, res: Response) => {
 
   const posts = await Post.find({ where: { removed: false }, relations: ['tags', 'user'] });
   const filtered = posts.filter((post) => {
-    if(post.user.banned){
+    if (post.user.banned) {
       return false;
     }
     if (!post.tags.find((tag) => tag.username.includes(username))) {
       return false;
     }
     const user = post.user;
-    if (user.id === req?.user.id) {
+    if (user.id === req.user?.id) {
       return true;
     }
     if ([...blockedByUserIds, ...hasBlockedUserIds].includes(user.id)) {

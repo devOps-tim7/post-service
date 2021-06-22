@@ -30,7 +30,7 @@ export default class User extends BaseEntity {
   @OneToMany(() => Comment, (comment) => comment.user, { cascade: true })
   comments: Comment[];
 
-  @ManyToMany(() => Post, (post) => post.tags)
+  @ManyToMany(() => Post, (post) => post.tags, { onDelete: 'CASCADE' })
   taggedPosts: Post;
 
   constructor(user?: {
