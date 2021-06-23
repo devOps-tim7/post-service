@@ -1,5 +1,5 @@
 import { BaseEntity, Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
-import { RelationType } from 'typeorm/metadata/types/RelationTypes';
+import { RelationType } from '../helpers/shared';
 import User from './User';
 
 @Entity()
