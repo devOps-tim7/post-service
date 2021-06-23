@@ -74,6 +74,7 @@ export default class Post extends BaseEntity {
     ageFilterHigh: number;
     tags: User[];
     genderFilter: Gender;
+    campaign?: boolean;
   }) {
     super();
     this.user = post?.user;
@@ -84,5 +85,6 @@ export default class Post extends BaseEntity {
     this.hidden = post?.hidden;
     this.tags = post?.tags;
     this.genderFilter = post?.genderFilter;
+    this.campaign = post?.campaign;
   }
 }

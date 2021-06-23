@@ -1,7 +1,7 @@
 import { Response } from 'express';
-import { RelationType } from 'typeorm/metadata/types/RelationTypes';
 import HttpException from '../exceptions/HttpException';
 import PropertyError from '../exceptions/PropertyError';
+import { RelationType } from '../helpers/shared';
 import { CustomRequest } from '../middleware/Auth';
 import Relation from '../models/Relation';
 import User from '../models/User';
